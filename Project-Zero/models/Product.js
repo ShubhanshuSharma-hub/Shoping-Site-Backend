@@ -1,101 +1,147 @@
-const mongoose = require("mongoose");
-const { Schema } = mongoose;
+const sequelize = require("../db/dbSQLConnect");
+const { DataTypes, Model, INTEGER } = require("sequelize");
 
-const productSchema = new Schema(
-  {
+class Product extends Model {}
+
+module.exports = () => {
+  const Products = sequelize.define("Products", {
     name: {
-      type: String,
-      required: [true, "please provide name"],
-      trim: true,
+      type: DataTypes.STRING,
+      allowNull: false,
+      validate: {
+        notNull: {
+          msg: "Please provide a name",
+        },
+      },
+      set(value) {
+        this.setDataValue("name", value.trim());
+      },
     },
     productName: {
-      type: String,
-      required: [true, "please provide product name"],
-      trim: true,
+      type: DataTypes.STRING,
+      allowNull: false,
+      validate: {
+        notNull: {
+          msg: "Please provide a product name",
+        },
+      },
+      set(value) {
+        this.setDataValue("productName", value.trim());
+      },
     },
     productDescription: {
-      type: JSON,
-      required: [true, "please provide product description"],
-      trim: true,
+      type: DataTypes.JSON,
+      allowNull: false,
+      validate: {
+        notNull: {
+          msg: "Please provide a product description",
+        },
+      },
+      set(value) {
+        this.setDataValue("productDescription", value.trim());
+      },
     },
     price: {
-      type: Number,
-      required: [true, "please provide product price"],
+      type: DataTypes.FLOAT,
+      allowNull: false,
+      validate: {
+        notNull: {
+          msg: "Please provide a product price",
+        },
+      },
     },
     productReview: {
-      type: Number,
-      required: [true, "please provide product review"],
+      type: DataTypes.FLOAT,
+      allowNull: false,
+      validate: {
+        notNull: {
+          msg: "Please provide a product review",
+        },
+      },
     },
     productDiscount: {
-      type: String,
-      required: [true, "please provide product discount"],
+      type: DataTypes.STRING,
+      allowNull: false,
+      validate: {
+        notNull: {
+          msg: "Please provide a product discount",
+        },
+      },
     },
     deleted: {
-      type: Boolean,
-      default: false,
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
     },
     deletedAt: {
-      type: Date,
-      default: null,
+      type: DataTypes.DATE,
+      defaultValue: null,
     },
-  },
-  { timestamps: true }
-);
-
-// Add soft delete function to the product schema
-productSchema.statics.softDelete = async function (filter) {
-  const result = await this.updateOne(filter, {
-    deleted: true,
-    deletedAt: new Date(),
+    createdAt: {
+      type: DataTypes.DATE,
+      defaultValue: DataTypes.NOW,
+    },
   });
-  return result.nModified;
+
+  return Products;
 };
 
-// module.exports = mongoose.model("Product", productSchema);
-
-const Product = mongoose.model("Product", productSchema);
-
-module.exports = Product;
-
-// ***************** //
+// <<---********************--->> //
 
 // const mongoose = require("mongoose");
-// const { softDeletePlugin } = require("soft-delete-plugin-mongoose");
+// const { Schema } = mongoose;
 
-// const UserSchema = new mongoose.Schema({
-//   name: {
-//     type: String,
-//     required: [true, "Please provide name"],
-//     minLength: 3,
-//     maxLength: 50,
+// const productSchema = new Schema(
+//   {
+//     name: {
+//       type: String,
+//       required: [true, "please provide name"],
+//       trim: true,
+//     },
+//     productName: {
+//       type: String,
+//       required: [true, "please provide product name"],
+//       trim: true,
+//     },
+//     productDescription: {
+//       type: JSON,
+//       required: [true, "please provide product description"],
+//       trim: true,
+//     },
+//     price: {
+//       type: Number,
+//       required: [true, "please provide product price"],
+//     },
+//     productReview: {
+//       type: Number,
+//       required: [true, "please provide product review"],
+//     },
+//     productDiscount: {
+//       type: String,
+//       required: [true, "please provide product discount"],
+//     },
+//     deleted: {
+//       type: Boolean,
+//       default: false,
+//     },
+//     deletedAt: {
+//       type: Date,
+//       default: null,
+//     },
 //   },
-//   productName: {
-//     type: String,
-//     required: [true, "Please provide product name"],
-//     minLength: 3,
-//     maxLength: 50,
-//   },
-//   productDescription: {
-//     type: JSON,
-//     required: [true, "Please provide product name"],
-//     minLength: 3,
-//     maxLength: 50,
-//   },
-//   price: {
-//     type: Number,
-//     required: [true, "Please provide price"],
-//   },
-//   productReview: {
-//     type: Number,
-//   },
-//   productDiscount: {
-//     type: String,
-//     minLength: 1,
-//     maxLength: 10,
-//   },
-// });
+//   { timestamps: true }
+// );
 
-// UserSchema.plugin(softDeletePlugin);
+// // Add soft delete function to the product schema
+// productSchema.statics.softDelete = async function (filter) {
+//   const result = await this.updateOne(filter, {
+//     deleted: true,
+//     deletedAt: new Date(),
+//   });
+//   return result.nModified;
+// };
 
-// const Product = mongoose.model("Product", UserSchema);
+// // module.exports = mongoose.model("Product", productSchema);
+
+// const Product = mongoose.model("Product", productSchema);
+
 // module.exports = Product;
