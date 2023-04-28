@@ -17,8 +17,10 @@ const errorHandlerMiddleware = require("./middleware/error-handler");
 
 // routers
 const productRouter = require("./routes/product");
+const authRouter = require("./routes/auth");
 
 app.use("/api/v1/product", productRouter);
+app.use("/api/v1/auth", authRouter);
 
 // middleware created by me
 app.use(notFoundMiddleware);

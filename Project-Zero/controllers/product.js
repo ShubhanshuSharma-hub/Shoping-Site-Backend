@@ -1,28 +1,33 @@
 const express = require("express");
 const { StatusCodes } = require("http-status-codes");
+const { BadRequestError } = require("../errors");
 const mysqlConnection = require("../utils/database");
 
 const Router = express.Router();
 
 // <<********Version 2 SQL*********>> //
 const getAllProducts = async (req, res, next) => {
-  mysqlConnection.query("SELECT * FROM products", (err, results, fields) => {
-    res.status(StatusCodes.OK).json({ products: results });
-  });
+  const [result] = await mysqlConnection.query(
+    "SELECT * FROM products WHERE is_deleted = 0"
+  );
+  res.status(StatusCodes.OK).json({ products: result });
 };
 
 const getProduct = async (req, res) => {
-  const { id } = req.params;
-  mysqlConnection.query(
-    "SELECT * FROM products WHERE id = ?",
-    [id],
-    (err, results, fields) => {
-      res.status(StatusCodes.OK).json({ products: results });
-    }
+  const idproduct = req.params.id;
+  const [result] = await mysqlConnection.query(
+    "SELECT * FROM products WHERE idproduct = ? AND is_deleted = 0",
+    [idproduct]
   );
+  if (result.length === 0) {
+    throw new BadRequestError(
+      "Product no longer exist or unknow product requested"
+    );
+  }
+  res.status(StatusCodes.OK).json({ products: result });
 };
 
-const createProduct = async (req, res) => {
+const createProduct = async (req, res, next) => {
   const {
     name,
     productName,
@@ -31,35 +36,49 @@ const createProduct = async (req, res) => {
     productReview,
     productDiscount,
   } = req.body;
-  const sql =
-    "INSERT INTO products (name, productName, productDescription, price, productReview, productDiscount) VALUES (?, ?, ?, ?, ?, ?)";
-  mysqlConnection.query(
-    sql,
-    [
-      name,
-      productName,
-      productDescription,
-      price,
-      productReview,
-      productDiscount,
-    ],
-    (err, results, fields) => {
-      const createdProduct = {
-        id: results.insertId,
-        name,
-        productName,
-        productDescription,
-        price,
-        productReview,
-        productDiscount,
-      };
-      res.status(StatusCodes.CREATED).json({ product: createdProduct });
-    }
+
+  // Check if product already exists
+  const [existingProduct] = await mysqlConnection.query(
+    "SELECT * FROM products WHERE name = ? AND productName = ?",
+    [name, productName]
   );
+
+  if (existingProduct.length > 0) {
+    throw new BadRequestError("Product already exists");
+  }
+
+  const discountedPrice = price - (price * productDiscount) / 100;
+
+  const sql =
+    "INSERT INTO products (name, productName, productDescription, price, discountedPrice, productReview, productDiscount, is_deleted) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+
+  const [result] = await mysqlConnection.query(sql, [
+    name,
+    productName,
+    productDescription,
+    price,
+    discountedPrice,
+    productReview,
+    productDiscount,
+    0,
+  ]);
+
+  const createdProduct = {
+    idproduct: result.insertId,
+    name,
+    productName,
+    productDescription,
+    price,
+    discountedPrice,
+    productReview,
+    productDiscount,
+  };
+
+  res.status(StatusCodes.CREATED).json({ product: createdProduct });
 };
 
 const updateProduct = async (req, res) => {
-  const id = req.params.id; // get the id parameter from the URL
+  const idproduct = req.params.id;
   const {
     name,
     productName,
@@ -68,44 +87,54 @@ const updateProduct = async (req, res) => {
     productReview,
     productDiscount,
   } = req.body;
-  const sql =
-    "UPDATE products SET name=?, productName=?, productDescription=?, price=?, productReview=?, productDiscount=? WHERE id=?";
-  mysqlConnection.query(
-    sql,
-    [
-      name,
-      productName,
-      productDescription,
-      price,
-      productReview,
-      productDiscount,
-      id, // use the id parameter in the query
-    ],
-    (err, results, fields) => {
-      const updatedProduct = {
-        id: results.insertId,
-        name,
-        productName,
-        productDescription,
-        price,
-        productReview,
-        productDiscount,
-      };
-      res.status(StatusCodes.OK).json({ product: updatedProduct });
-    }
-  );
+
+  const discountedPrice = price - (price * productDiscount) / 100;
+
+  // check if the product exists in the database
+  const checkSql = "SELECT * FROM products WHERE idproduct = ?";
+  const [checkResult] = await mysqlConnection.query(checkSql, [idproduct]);
+  if (checkResult.length === 0) {
+    res
+      .status(StatusCodes.NOT_FOUND)
+      .json({ message: `Product with id ${idproduct} not found.` });
+    return;
+  }
+
+  const updateSql =
+    "UPDATE products SET name=?, productName=?, productDescription=?, price=?, discountedPrice=?, productReview=?, productDiscount=? WHERE idproduct=?";
+
+  await mysqlConnection.query(updateSql, [
+    name,
+    productName,
+    productDescription,
+    price,
+    discountedPrice,
+    productReview,
+    productDiscount,
+    idproduct,
+  ]);
+
+  const updatedProduct = {
+    idproduct,
+    name,
+    productName,
+    productDescription,
+    price,
+    discountedPrice,
+    productReview,
+    productDiscount,
+  };
+
+  res.status(StatusCodes.OK).json({ product: updatedProduct });
 };
 
 const deleteProduct = async (req, res) => {
-  mysqlConnection.query(
-    "DELETE FROM products WHERE ID= ? ",
-    [req.params.id],
-    (err, results, fields) => {
-      res
-        .status(StatusCodes.OK)
-        .json({ message: "Product deleted successfully" });
-    }
+  const idproduct = req.params.id;
+  await mysqlConnection.query(
+    "UPDATE products SET is_deleted = 1 WHERE idproduct= ?",
+    [idproduct]
   );
+  res.status(StatusCodes.OK).json({ message: "Product deleted successfully" });
 };
 
 module.exports = {
@@ -195,75 +224,3 @@ module.exports = {
 // });
 
 // module.exports = Router;
-
-// <<********MongoDB*********>> //
-
-// const Product = require("../models/Product");
-// const { StatusCodes } = require("http-status-codes");
-// const { NotFoundError } = require("../errors");
-
-// const getAllProducts = async (req, res, next) => {
-//   const products = await Product.findAll();
-//   res.status(StatusCodes.OK).json({ products });
-// };
-
-// const getProduct = async (req, res) => {
-//   const { id } = req.params;
-//   const product = await Product.findOne({ _id: id, deleted: false });
-//   if (!product) {
-//     throw new NotFoundError("product not found");
-//   }
-//   res.status(StatusCodes.OK).json({ product });
-// };
-
-// const createProduct = async (req, res) => {
-//   const {
-//     name,
-//     productName,
-//     productDescription,
-//     price,
-//     productReview,
-//     productDiscount,
-//   } = req.body;
-//   const product = await Product.create({
-//     name,
-//     productName,
-//     productDescription,
-//     price,
-//     productReview,
-//     productDiscount,
-//   });
-//   res.status(StatusCodes.CREATED).json({ product });
-// };
-
-// const updateProduct = async (req, res) => {
-//   const { id } = req.params;
-//   const product = await Product.findOneAndUpdate(
-//     { _id: id, deleted: false },
-//     req.body,
-//     {
-//       new: true,
-//     }
-//   );
-//   if (!product) {
-//     throw new NotFoundError("product not found");
-//   }
-//   res.status(StatusCodes.OK).json({ product });
-// };
-
-// const deleteProduct = async (req, res) => {
-//   const { id } = req.params;
-//   const numberDeletedElements = await Product.softDelete({ _id: id });
-//   if (numberDeletedElements === 0) {
-//     throw new NotFoundError("product not found");
-//   }
-//   res.status(StatusCodes.OK).json({ message: "Product deleted successfully" });
-// };
-
-// module.exports = {
-//   getAllProducts,
-//   getProduct,
-//   createProduct,
-//   updateProduct,
-//   deleteProduct,
-// };
